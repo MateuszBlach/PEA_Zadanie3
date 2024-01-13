@@ -1,6 +1,7 @@
 #include <iostream>
 #include "headers\Menu.h"
 #include "headers\Matrix.h"
+#include "headers\Chromosome.h"
 #include <chrono>
 #include <math.h>
 #include "headers\MyFunctions.h"
@@ -17,8 +18,8 @@ Menu menu = Menu();
 //Zmienie i obiekty potrzebne do wykonania algorytmu
 Matrix matrix = Matrix();
 
-int* bestPath;
-int bestPathLength;
+Chromosome bestChromosome;
+int bestChromosomeLength;
 long long timeToFindBest;
 
 string savePath;
@@ -30,28 +31,23 @@ int stop;
 double crossingFactor,mutationFactor;
 
 int populationSize;
-int **population;
+vector<Chromosome> population;
 
 //zmienne potrzebne do wykresow
 vector<long long> timeVector;
 vector<double> bladVector;
 
+
+
 void manageMainMenu();
-
-int** generateStartingPopulation();
-int* generateRandomChromosome();
-
-void releasePopulationMemory();
-
-int* inversionMutation();
-
-double simulatedAnnealingAlgorithm(double temperature,int* startingPath, int startingPathLength);
-
-
+vector<Chromosome> generateStartingPopulation();
+Chromosome generateRandomChromosome();
+Chromosome inversionMutation();
+Chromosome orderCrosover(Chromosome firstParent, Chromosome secondParent,int firstIndex, int secondIndex);
+double geneticAlgorithm();
+int calculateChromosomeLength(Chromosome chromosome);
 void test();
-
 void testBladWzgledny();
-
 int opt;
 
 int main()
@@ -64,7 +60,6 @@ int main()
     } while (mainMenuChoice != 0);
     menu.~Menu();
 
-    delete[] bestPath;
     return 0;
 }
 
@@ -73,13 +68,8 @@ void manageMainMenu() {
     string readPath;
     int fileChoice;
 
-    int* startingPath = nullptr;
-    int startingPathLength;
 
-
-    double temperature;
     double bladWzgledny;
-    double wyrazenieTemperatury;
 
     int numberOfCities;
 
@@ -132,18 +122,17 @@ void manageMainMenu() {
             population = generateStartingPopulation();
 
 
-            cout << "Dlugosc sciezki wyliczonej: " << bestPathLength << endl;
+            cout << "Dlugosc sciezki wyliczonej: " << bestChromosomeLength << endl;
 
             for (int i = 0; i < matrix.numberOfCities; i++) {
-                cout << bestPath[i] << "->";
+                cout << bestChromosome.genes[i] << "->";
             }
-            cout << bestPath[matrix.numberOfCities] << endl;
+            cout << bestChromosome.genes[matrix.numberOfCities] << endl;
             cout << "Czas potrzebny na znalezienie rozwiazania: " << timeToFindBest/1000000 << "s" << endl;
 
-            bladWzgledny = abs(bestPathLength - opt) / (double)opt;
+            bladWzgledny = abs(bestChromosomeLength - opt) / (double)opt;
             cout << "Blad wzgledny " << bladWzgledny << "%" << endl;
 
-            releasePopulationMemory();
             break;
         case 7:
             test();
@@ -157,18 +146,23 @@ void manageMainMenu() {
 
 }
 
-int** generateStartingPopulation(){
-    int** startingPopulation = new int*[populationSize];
+vector<Chromosome> generateStartingPopulation(){
+    vector<Chromosome> startingPopulation;
     for(int i = 0; i < populationSize; i++){
         startingPopulation[i] = generateRandomChromosome();
+        int chromosomeLength = calculateChromosomeLength(startingPopulation[i]);
+        if(chromosomeLength < bestChromosomeLength){
+            bestChromosomeLength = chromosomeLength;
+            bestChromosome = startingPopulation[i];
+        }
     }
     return startingPopulation;
 }
 
 
-int* generateRandomChromosome() {
+Chromosome generateRandomChromosome() {
     bool* visited = new bool[matrix.numberOfCities];
-    int* chromosome = new int[matrix.numberOfCities];
+    Chromosome chromosome;
 
     int starting = generateRandomInt(0,matrix.numberOfCities-1);
 
@@ -176,7 +170,7 @@ int* generateRandomChromosome() {
         visited[i] = false;
     }
     visited[starting] = true;
-    chromosome[0] = starting;
+    chromosome.genes[0] = starting;
 
     int nextCity;
     for (int i = 0; i < matrix.numberOfCities - 1; i++) {
@@ -184,20 +178,15 @@ int* generateRandomChromosome() {
             nextCity = generateRandomInt(0,matrix.numberOfCities-1);
         } while (!visited[nextCity]);
         visited[nextCity] = true;
-        chromosome[i + 1] = nextCity;
+        chromosome.genes[i + 1] = nextCity;
     }
     delete[] visited;
+    chromosome.value = calculateChromosomeLength(chromosome);
     return chromosome;
 }
 
-void releasePopulationMemory(){
-    for (int i = 0; i < populationSize; ++i) {
-        delete[] population[i];
-    }
-    delete[] population;
-}
 
-int* inversionMutation(int* chromosome){
+Chromosome inversionMutation(Chromosome chromosome){
     int firstIndex;
     int secondIndex;
     do{
@@ -210,19 +199,51 @@ int* inversionMutation(int* chromosome){
         secondIndex = holder;
     }
 
-    int* mutatedChromosome = new int[matrix.numberOfCities];
+    Chromosome mutatedChromosome;
     for(int i = 0;  i < firstIndex; i++){
-        mutatedChromosome[i] = chromosome[i];
+        mutatedChromosome.genes[i] = chromosome.genes[i];
     }
-    //TODO
-    for(int i = firstIndex;  i < secondIndex; i++){
-        mutatedChromosome[i] = chromosome[i];
+
+
+    for(int i = firstIndex, j =  secondIndex ;  i < secondIndex; i++,j--){
+        mutatedChromosome.genes[i] = chromosome.genes[j];
+    }
+
+    for(int i = secondIndex; i < matrix.numberOfCities;i++){
+        mutatedChromosome.genes[i] = chromosome.genes[i];
+    }
+
+    return  mutatedChromosome;
+
+}
+
+int calculateChromosomeLength(Chromosome chromosome){
+    int length = 0;
+    for (int i = 0; i < matrix.numberOfCities-1; i++) {
+        length += matrix.matrix[chromosome.genes[i]][chromosome.genes[i + 1]];
+    }
+    length += matrix.matrix[chromosome.genes[matrix.numberOfCities-1]][chromosome.genes[0]];
+    return length;
+}
+
+Chromosome orderCrosover(Chromosome firstParent, Chromosome secondParent,int firstIndex, int secondIndex){
+    Chromosome newChromosome;
+    vector<bool> taken(matrix.numberOfCities,false);
+
+    for(int i = firstIndex; i < secondIndex;i++){
+        newChromosome.genes[i] = firstParent.genes[i];
+        taken[newChromosome.genes[i]] = true;
+    }
+    //TODO dokonczyc crossover - powinny być 4 pętle
+    for(int i = secondIndex; i < matrix.numberOfCities; i++){
+        if(!taken[secondParent.genes[i]]){
+
+        }
     }
 
 }
 
-
-double simulatedAnnealingAlgorithm(double temperature, int* startingPath, int startingPathLength) {
+double geneticAlgorithm() {
     steady_clock::time_point start = steady_clock::now();
     steady_clock::duration duration;
 
@@ -230,100 +251,55 @@ double simulatedAnnealingAlgorithm(double temperature, int* startingPath, int st
     timeVector.clear();
     bladVector.clear();
 
-    //na poczatek najlepsza sciezka jest sciezka startowa - wyliczona metoda zachlanna
-    bestPath = startingPath;
-    bestPathLength = startingPathLength;
-
-    //sciezka najlepsza lokalnie
-    int* currentBestPath = new int[matrix.numberOfCities + 1];
-    for (int i = 0; i <= matrix.numberOfCities; i++) {
-        currentBestPath[i] = startingPath[i];
-    }
-    int currentBestPathLength = startingPathLength;
-
-    //zmienna pomocna do losowej zmiany w tabeli
-    int temporary;
+    int crossoverStatus, crossoverFirstIndex;
 
     do {
-        //sprawdzenie czy lokalnie najlepsza sciezka jest lepsza od najlepszej globalnie
-        if (currentBestPathLength < bestPathLength) {
+        crossoverStatus = 0;
+        crossoverFirstIndex = 0;
+        for(int i = 0; i < population.size(); i++){
+            int chance = generateRandomInt(1,100);
+
+            //krzyzowanie
+            if(chance > 81){
+                if(crossoverStatus == 0){
+                    crossoverStatus = 1;
+                    crossoverFirstIndex = i;
+                }else{
+                    crossoverStatus = 2;
+                    //TODO Implementacja jakiegos krzyzowania
+                }
+            }else if(chance == 81){
+                population[i] = inversionMutation(population[i]);
+            }
+
+
+        }
+
+
+        if (currentBestPathLength < bestChromosomeLength) {
             duration = steady_clock::now() - start;
             timeToFindBest = duration_cast<microseconds>(duration).count();
-            delete[] bestPath;
-            bestPath = new int[matrix.numberOfCities + 1];
+            delete[] bestChromosome;
+            bestChromosome = new int[matrix.numberOfCities];
             for (int i = 0; i <= matrix.numberOfCities; i++) {
-                bestPath[i] = currentBestPath[i];
+                bestChromosome[i] = currentBestPath[i];
             }
-            bestPathLength = currentBestPathLength;
+            bestChromosomeLength = currentBestPathLength;
 
             timeVector.push_back(timeToFindBest);
-            bladVector.push_back((bestPathLength - opt) / (double)opt);
+            bladVector.push_back((bestChromosomeLength - opt) / (double)opt);
         }
 
-        //losowanie indeksow
-        int v1, v2;
-        do {
-            v1 = generateRandomInt(1, matrix.numberOfCities - 1);
-            v2 = generateRandomInt(1, matrix.numberOfCities - 1);
-        } while (
-                v1 == v2
-                );
 
 
-        int* newPath = new int[matrix.numberOfCities + 1];
-        int newPathLength;
-        //kopia lokalnej najlepszej do nowej sciezki losowej
-        for (int i = 0; i <= matrix.numberOfCities; i++) {
-            newPath[i] = currentBestPath[i];
-        }
-
-        //zamiana indeksow wylosowanych
-        temporary = newPath[v2];
-        newPath[v2] = newPath[v1];
-        newPath[v1] = temporary;
 
 
-        //obliczenie nowo powstałej trasy
-        newPathLength = 0;
-        for (int i = 0; i < matrix.numberOfCities; i++) {
-            newPathLength += matrix.matrix[newPath[i]][newPath[i + 1]];
-        }
 
-        //decyzja czy zmiana nastąpi
-        if (newPathLength < currentBestPathLength) {
-            delete[] currentBestPath;
-            currentBestPath = new int[matrix.numberOfCities + 1];
-            for (int i = 0; i <= matrix.numberOfCities; i++) {
-                currentBestPath[i] = newPath[i];
-            }
-            currentBestPathLength = newPathLength;
-        }
-        else {
-            double probability = exp(-abs(newPathLength - currentBestPathLength) / temperature);
-            random_device rd;
-            mt19937 gen(rd());
-            uniform_real_distribution<double> dis(0.0, 1.0);
-            double randomDouble = dis(gen);
 
-            if (randomDouble < probability) {
-                delete[] currentBestPath;
-                currentBestPath = new int[matrix.numberOfCities + 1];
-                for (int i = 0; i <= matrix.numberOfCities; i++) {
-                    currentBestPath[i] = newPath[i];
-                }
-                currentBestPathLength = newPathLength;
-            }
-        }
-
-        delete[] newPath;
-
-        //schładzanie
-        temperature *= alpha;
 
         //sprawdzenie czasu
         duration = steady_clock::now() - start;
     } while (duration_cast<seconds>(duration).count() < static_cast<long long>(stop) * 1);
-    return temperature;
 }
 
 void savePathToFile(int* path) {
@@ -341,27 +317,6 @@ void savePathToFile(int* path) {
     }
 }
 
-void readPathFromFile(string filePath) {
-    ifstream  myFile(filePath);
-    if (myFile.fail()) {
-        cout << "Podano bledna sciezke do pliku!" << endl;
-    }
-    else {
-        bestPathLength = 0;
-
-        int len;
-        myFile >> len;
-        delete[] bestPath;
-        bestPath = new int[len+1];
-
-        for (int i = 0; i <= len; i++) {
-            myFile >> bestPath[i];
-        }
-
-
-        myFile.close();
-    }
-}
 
 void test() {
 
@@ -405,12 +360,12 @@ void test() {
 
                 temperature = calculateStartingTemperature();
                 temperature = simulatedAnnealingAlgorithm(temperature, startingPath, startingPathLength);
-                bladWzgledny = abs(bestPathLength - opt) / (double)opt;
+                bladWzgledny = abs(bestChromosomeLength - opt) / (double)opt;
                 wyrazenieTemperatury = exp(-1 / temperature);
 
                 ofstream outfile("testing_files/testResults.txt", std::ios::out | std::ios::app);
                 if (outfile.is_open()) {
-                    outfile << bestPathLength;
+                    outfile << bestChromosomeLength;
                     outfile << ";";
                     outfile << bladWzgledny;
                     outfile << ";";
@@ -428,12 +383,12 @@ void test() {
                     cout << "Nie mozna otworzyc pliku." << endl;
                 }
 
-                if (bestPathLength < bestForFileLen) {
-                    bestForFileLen = bestPathLength;
+                if (bestChromosomeLength < bestForFileLen) {
+                    bestForFileLen = bestChromosomeLength;
                     delete[] bestForFile;
                     bestForFile = new int[matrix.numberOfCities + 1];
                     for (int i = 0; i <= matrix.numberOfCities; i++) {
-                        bestForFile[i] = bestPath[i];
+                        bestForFile[i] = bestChromosome[i];
                     }
                 }
 
