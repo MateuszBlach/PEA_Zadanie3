@@ -62,7 +62,6 @@ void Matrix::loadFromFile(string filePath){
 	}
 }
 
-void Matrix::loadFromFileXML(string filePath) {}
 
 void Matrix::display() {
 	cout << "   ";
