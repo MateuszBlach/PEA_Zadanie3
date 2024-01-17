@@ -39,6 +39,8 @@ vector<Chromosome> population;
 vector<long long> timeVector;
 vector<double> bladVector;
 
+vector<long long> bestTimeVector;
+vector<double> bestBladVector;
 
 
 void manageMainMenu();
@@ -51,6 +53,8 @@ int calculateChromosomeLength(Chromosome chromosome);
 void selection();
 void test();
 void testBladWzgledny();
+
+
 int opt;
 
 int main()
@@ -146,7 +150,7 @@ void manageMainMenu() {
 
             break;
         case 7:
-            //test();
+            test();
             break;
         default:
             break;
@@ -319,15 +323,12 @@ Chromosome orderCrossover(Chromosome firstParent, Chromosome secondParent, int f
             throw exception();
         }
 
-
 }
 
 void geneticAlgorithm() {
-
     steady_clock::time_point start = steady_clock::now();
     steady_clock::duration duration;
 
-    //na potrzeby stworzenia wykresow
     timeVector.clear();
     bladVector.clear();
 
@@ -377,7 +378,7 @@ void geneticAlgorithm() {
                         timeToFindBest = duration_cast<microseconds>(duration).count();
 
                         timeVector.push_back(timeToFindBest);
-                        bladVector.push_back((bestChromosomeLength - opt) / (double)opt);
+                        bladVector.push_back(100.0*(bestChromosomeLength - opt) / (double)opt);
 
                         bestChromosome = secondNewChromosome;
                         bestChromosomeLength = secondNewChromosome.value;
@@ -398,16 +399,9 @@ void geneticAlgorithm() {
                 }
                 population.push_back(mutatedChromosome);
             }
-
-
         }
-
-
         selection();
 
-
-
-        //sprawdzenie czasu
         duration = steady_clock::now() - start;
     } while (duration_cast<seconds>(duration).count() < static_cast<long long>(stop) * 1);
 }
@@ -422,146 +416,67 @@ void selection(){
     }
 }
 
-void savePathToFile(int* path) {
-    //ofstream outfile(savePath, std::ios::out | std::ios::app);
-    ofstream outfile(savePath);
-    if (outfile.is_open()) {
-        outfile << matrix.numberOfCities << endl;
-        for (int i = 0; i <= matrix.numberOfCities; i++) {
-            outfile << path[i] << endl;;
-        }
-        outfile.close();
-    }
-    else {
-        std::cout << "Nie mozna otworzyc pliku." << endl;
-    }
-}
 
-/*
 void test() {
+    int optArr[] = { 1776,2755,2465 };
+    int stopArr[] = { 60, 120,240};
+    int populationSizeArr[] = {1000,2500,5000};
+    string filePaths[] = { "../testing_files/ftv47.atsp","../testing_files/ftv170.atsp","../testing_files/rbg403.atsp" };
 
-    double testingAlpha[] = { 0.99999975,0.999999925};
-    int stopArr[] = { 60,120,240 };
-    int optArr[] = { 1608,2755,1163 };
-    string filePaths[] = { "testing_files/ftv55.atsp","testing_files/ftv170.atsp","testing_files/rbg358.atsp" };
-    string savePaths[] = { "testing_files/sa_ftv55.txt","testing_files/sa_ftv170.txt","testing_files/sa_rbg358.txt" };
-
-
-
-    int* startingPath = nullptr;
-    int startingPathLength;
-
-
-    double temperature;
-    double bladWzgledny;
-    double wyrazenieTemperatury;
-
+    crossingFactor = 80;
+    mutationFactor = 1;
 
     for (int fileNumber = 0; fileNumber < 3; fileNumber++) {
-        matrix.loadFromFile(filePaths[fileNumber]);
-        savePath = savePaths[fileNumber];
-        stop = stopArr[fileNumber];
-        opt = optArr[fileNumber];
+        for(int pop : populationSizeArr) {
 
-        int* bestForFile = new int[matrix.numberOfCities + 1];
-        int bestForFileLen = INT_MAX;
+            populationSize = pop;
 
-        for (int alphaNumber = 0; alphaNumber < 2; alphaNumber++) {
-            cout << "Testowanie alpha:" << testingAlpha[alphaNumber] << " plik " << filePaths[fileNumber] << endl;
-            alpha = testingAlpha[alphaNumber];
-            cout << "alpha " << alpha << endl;
+            matrix.loadFromFile(filePaths[fileNumber]);
+            stop = stopArr[fileNumber];
+            opt = optArr[fileNumber];
+
+            int bestForFileLen = INT_MAX;
+
+            double bladWzgledny;
+
             for (int k = 0; k < 10; k++) {
+                cout << "Testowanie plik " << filePaths[fileNumber]<< " populacja " << pop << " iteracja " << k+1 << endl;
 
-                startingPath = generateStartingPath();
-                startingPathLength = 0;
-                for (int i = 0; i < matrix.numberOfCities; i++) {
-                    startingPathLength += matrix.matrix[startingPath[i]][startingPath[i + 1]];
-                }
+                bestChromosomeLength = INT_MAX;
 
-                temperature = calculateStartingTemperature();
-                temperature = simulatedAnnealingAlgorithm(temperature, startingPath, startingPathLength);
-                bladWzgledny = abs(bestChromosomeLength - opt) / (double)opt;
-                wyrazenieTemperatury = exp(-1 / temperature);
+                population = generateStartingPopulation();
 
-                ofstream outfile("testing_files/testResults.txt", std::ios::out | std::ios::app);
+                geneticAlgorithm();
+
+                bladWzgledny = 100.0 * abs(bestChromosomeLength - opt) / (double) opt;
+
+                ofstream outfile("../testing_files/testResults.txt", std::ios::out | std::ios::app);
                 if (outfile.is_open()) {
+                    outfile << pop;
+                    outfile << ";";
                     outfile << bestChromosomeLength;
                     outfile << ";";
                     outfile << bladWzgledny;
                     outfile << ";";
-                    outfile << temperature;
-                    outfile << ";";
-                    outfile << wyrazenieTemperatury;
-                    outfile << ";";
-                    outfile << alpha;
-                    outfile << ";";
-                    outfile << timeToFindBest;
+                    outfile << timeToFindBest/1000000.0;
                     outfile << ";" << endl;
                     outfile.close();
-                }
-                else {
+                } else {
                     cout << "Nie mozna otworzyc pliku." << endl;
                 }
 
                 if (bestChromosomeLength < bestForFileLen) {
                     bestForFileLen = bestChromosomeLength;
-                    delete[] bestForFile;
-                    bestForFile = new int[matrix.numberOfCities + 1];
-                    for (int i = 0; i <= matrix.numberOfCities; i++) {
-                        bestForFile[i] = bestChromosome[i];
-                    }
+                    bestBladVector = bladVector;
+                    bestTimeVector = timeVector;
                 }
-
-            }
-        }
-        savePathToFile(bestForFile);
-        delete[] bestForFile;
-        //zapis najlepszego rozwiazania
-    }
-
-}
-
-void testBladWzgledny() {
-    double testingAlpha[] = {
-            0.99999975,
-            0.9999999,
-            0.999999925 };
-    int stopArr[] = { 60,120,240 };
-    int optArr[] = { 1608,2755,1163 };
-    string filePaths[] = { "testing_files/ftv55.atsp","testing_files/ftv170.atsp","testing_files/rbg358.atsp" };
-
-
-    int* startingPath = nullptr;
-    int startingPathLength;
-
-
-    double temperature;
-    double bladWzgledny;
-    double wyrazenieTemperatury;
-
-
-    for (int fileNumber = 0; fileNumber < 3; fileNumber++) {
-        matrix.loadFromFile(filePaths[fileNumber]);
-        stop = stopArr[fileNumber];
-        opt = optArr[fileNumber];
-
-
-        for (int alphaNumber = 0; alphaNumber < 3; alphaNumber++) {
-            alpha = testingAlpha[alphaNumber];
-            startingPath = generateStartingPath();
-            startingPathLength = 0;
-            for (int i = 0; i < matrix.numberOfCities; i++) {
-                startingPathLength += matrix.matrix[startingPath[i]][startingPath[i + 1]];
             }
 
-            temperature = calculateStartingTemperature();
-            temperature = simulatedAnnealingAlgorithm(temperature, startingPath, startingPathLength);
-
-            ofstream outfile("testing_files/testBlad.txt", std::ios::out | std::ios::app);
+            ofstream outfile("../testing_files/testBlad.txt", std::ios::out | std::ios::app);
             if (outfile.is_open()) {
-                outfile << filePaths[fileNumber] << ";" << testingAlpha[alphaNumber] << ";" << endl;
+                outfile << filePaths[fileNumber] << ";" <<pop << ";" << endl;
                 for (int i = 0; i < bladVector.size(); i++) {
-                    outfile << timeVector[i] << ";";
+                    outfile << timeVector[i]/1000000.0 << ";";
                 }
                 outfile << endl << endl;
                 for (int i = 0; i < bladVector.size(); i++) {
@@ -569,13 +484,9 @@ void testBladWzgledny() {
                 }
                 outfile << endl;
                 outfile.close();
-            }
-            else {
+            } else {
                 cout << "Nie mozna otworzyc pliku." << endl;
             }
-
         }
     }
 }
-
- */
