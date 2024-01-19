@@ -365,7 +365,7 @@ void geneticAlgorithm() {
                         timeToFindBest = duration_cast<microseconds>(duration).count();
 
                         timeVector.push_back(timeToFindBest);
-                        bladVector.push_back((bestChromosomeLength - opt) / (double)opt);
+                        bladVector.push_back(100.0*(bestChromosomeLength - opt) / (double)opt);
 
                         bestChromosome = firstNewChromosome;
                         bestChromosomeLength = firstNewChromosome.value;
@@ -392,7 +392,7 @@ void geneticAlgorithm() {
                     timeToFindBest = duration_cast<microseconds>(duration).count();
 
                     timeVector.push_back(timeToFindBest);
-                    bladVector.push_back((bestChromosomeLength - opt) / (double)opt);
+                    bladVector.push_back(100.0*(bestChromosomeLength - opt) / (double)opt);
 
                     bestChromosome = mutatedChromosome;
                     bestChromosomeLength = mutatedChromosome.value;
@@ -420,7 +420,7 @@ void selection(){
 void test() {
     int optArr[] = { 1776,2755,2465 };
     int stopArr[] = { 60, 120,240};
-    int populationSizeArr[] = {1000,2500,5000};
+    int populationSizeArr[] = {500,1000,2000};
     string filePaths[] = { "../testing_files/ftv47.atsp","../testing_files/ftv170.atsp","../testing_files/rbg403.atsp" };
 
     crossingFactor = 80;
@@ -476,11 +476,11 @@ void test() {
             if (outfile.is_open()) {
                 outfile << filePaths[fileNumber] << ";" <<pop << ";" << endl;
                 for (int i = 0; i < bladVector.size(); i++) {
-                    outfile << timeVector[i]/1000000.0 << ";";
+                    outfile << bestTimeVector[i]/1000000.0 << ";";
                 }
                 outfile << endl << endl;
                 for (int i = 0; i < bladVector.size(); i++) {
-                    outfile << bladVector[i] << ";";
+                    outfile << bestBladVector[i] << ";";
                 }
                 outfile << endl;
                 outfile.close();
