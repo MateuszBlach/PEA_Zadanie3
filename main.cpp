@@ -475,11 +475,11 @@ void test() {
             ofstream outfile("../testing_files/testBlad.txt", std::ios::out | std::ios::app);
             if (outfile.is_open()) {
                 outfile << filePaths[fileNumber] << ";" <<pop << ";" << endl;
-                for (int i = 0; i < bladVector.size(); i++) {
+                for (int i = 0; i < bestTimeVector.size(); i++) {
                     outfile << bestTimeVector[i]/1000000.0 << ";";
                 }
                 outfile << endl << endl;
-                for (int i = 0; i < bladVector.size(); i++) {
+                for (int i = 0; i < bestBladVector.size(); i++) {
                     outfile << bestBladVector[i] << ";";
                 }
                 outfile << endl;
